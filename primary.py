@@ -42,13 +42,22 @@ def awsApiKey():
 
 
     # THIS CODE WAS RECIEVED FROM THE BOTO3 DOCUMENTATION : https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html
-    ec2client = boto3.client(
-    'ec2',
-    aws_access_key_id = accessKeyId,
-    aws_secret_access_key = secretAccessKey
-    )
-
+    global ec2client 
+    ec2client = boto3.resource('ec2',aws_access_key_id = accessKeyId,aws_secret_access_key = secretAccessKey)
     print("We Patched You In!")
+    return ec2client
+
+def createNewInstance():
+    # THE FOLLOWING CODE WAS TAKEN FROM THE BOTO3 DOCUMENTATION : https://boto.readthedocs.io/en/latest/ref/ec2.html#boto.ec2.connection.EC2Connection.run_instances
+    key_pair_name = input("Please Enter a Name for your Key : ")
+    try :
+        ec2client.create_key_pair(KeyName = key_pair_name, DryRun=False)
+    except botocore.exceptions.ClientError :
+        print("\n Key Already Exists \n")
+    currentInstance = ec2client.create_instances(ImageId='04c65a892ebe6555b', MinCount=1, MaxCount=1, instance_type='t2.nano',key_name=key_pair_name,user_data = "sudo yum install httpd -y sudo systemctl enable httpd sudo systemctl start httpd")
+    currentInstance.create_security_group(GroupName = 'HTTP',Description='ALLOWING ACCESS THROUGH THE INTERNET')
+    
+
 
 def mainMenu():
 
@@ -57,14 +66,16 @@ def mainMenu():
     print("1. Create A New Instance")
     print("2. Start/Stop an Instance")
     print("3. Upload an Image")
+    print("4. Upload an Image")
     print("---------")
     userSelection = input("Your Selection : ")
     switcher={
-        # 1: createNewInstance(),
+        1: createNewInstance()
         # 2: startStopper(),
         # 3: uploadImage()
     }
     return switcher.get(userSelection,"Invalid Number Selected")
+
     
 awsApiKey()
 mainMenu()
