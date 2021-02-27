@@ -50,12 +50,21 @@ def awsApiKey():
 def createNewInstance():
     # THE FOLLOWING CODE WAS TAKEN FROM THE BOTO3 DOCUMENTATION : https://boto.readthedocs.io/en/latest/ref/ec2.html#boto.ec2.connection.EC2Connection.run_instances
     key_pair_name = input("Please Enter a Name for your Key : ")
+    # instance_name = input("Please Enter a Name for your Instance : ")
     try :
-        ec2client.create_key_pair(KeyName = key_pair_name, DryRun=False)
+        ec2client.create_key_pair(KeyName = key_pair_name)
     except botocore.exceptions.ClientError :
         print("\n Key Already Exists \n")
-    currentInstance = ec2client.create_instances(ImageId='04c65a892ebe6555b', MinCount=1, MaxCount=1, instance_type='t2.nano',key_name=key_pair_name,user_data = "sudo yum install httpd -y sudo systemctl enable httpd sudo systemctl start httpd")
+    print("Pending......")
+    user_data = '''#!/bin/bash
+    sudo yum install httpd -y
+    sudo systemctl enable httpd
+    sudo systemctl start httpd'''
+    
+        
+    currentInstance = ec2client.create_instances(ImageId='ami-096f43ef67d75e998', MinCount=1, MaxCount=1, InstanceType='t2.nano',KeyName=key_pair_name,UserData = user_data)
     currentInstance.create_security_group(GroupName = 'HTTP',Description='ALLOWING ACCESS THROUGH THE INTERNET')
+    print("Your Instance Has Been Created!")
     
 
 
