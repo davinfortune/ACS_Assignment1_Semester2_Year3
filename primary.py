@@ -1,6 +1,7 @@
 import boto3
 import botocore
 import json
+import subprocess
 
 # sg-0b6477708c0e8462d
 
@@ -90,31 +91,68 @@ def createNewInstance():
 
     for inst in ec2client.instances.all():
         if inst.id == currentInstance[0].id:
-            print("\nPending......\n")
+            print("\nPending......")
             inst.wait_until_running()
             inst.reload()
             public_ip = inst.public_ip_address
     
     print("\nYour Instance Has Been Created!\n\nYou can Visit it Here : http://%s\n" % (public_ip))
-    
 
+def terminateInstance():
+    x=1
+    print("Please Select an Instance to Terminate\n")
+    print("--------------------------------------\n")
+    runningInstances = ec2client.instances.filter(Filters=[{'Name': 'instance-state-name', 'Values': ['running']}])
+    for inst in runningInstances:
+        print(str(x) + ". " + inst.id)
+        x = x + 1
+    instanceToTerminate = input("\nYour Selection: ")
+    y=1
+    for inst in runningInstances:
+        if(y == int(instanceToTerminate)):
+            print("Terminating.....")
+            inst.terminate()
+            inst.wait_until_terminated()
+        else:
+            y = y + 1
+
+def createNewBucket():
+    print("Hello")
+
+def startStopper():
+    print("Hello")
+
+def mainMenuSwitcher(userSelection):
+    intCoverter = int(userSelection)
+    if intCoverter == 1:
+        createNewInstance()
+    elif intCoverter == 2:
+        startStopper()
+    elif intCoverter == 3:
+        terminateInstance()
+    elif intCoverter == 4:
+        createNewBucket()
+    # elif intCoverter == 5:
+    #     uploadImage()
+    elif intCoverter == 0:
+        quit()
+    else:
+        print("\n!!!!! Invalid Selection !!!!!")
 
 def mainMenu():
-
     print("\nMain Menu")
     print("---------")
     print("1. Create A New Instance")
     print("2. Start/Stop an Instance")
-    print("3. Create Bucket")
-    print("4. Upload an Image")
+    print("3. Terminate an Instance")
+    print("4. Create Bucket")
+    print("5. Upload an Image to a Bucket")
+    print("6. Upload an Image to an Instance")
+    print("\n0. Quit")
     print("---------")
     userSelection = input("Your Selection : ")
-    switcher={
-        1: createNewInstance()
-        # 2: startStopper(),
-        # 3: uploadImage()
-    }
-    return switcher.get(userSelection,"Invalid Number Selected")
+    mainMenuSwitcher(userSelection)
+    mainMenu()
 
     
 awsApiKey()
