@@ -1,6 +1,8 @@
 import boto3
 import botocore
 import json
+import urllib.request
+import os
 import subprocess
 
 # sg-0b6477708c0e8462d
@@ -46,7 +48,9 @@ def awsApiKey():
 
     # THIS CODE WAS RECIEVED FROM THE BOTO3 DOCUMENTATION : https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html
     global ec2client 
+    global s3client
     ec2client = boto3.resource('ec2',aws_access_key_id = accessKeyId,aws_secret_access_key = secretAccessKey)
+    s3client = boto3.client('s3',aws_access_key_id = accessKeyId,aws_secret_access_key = secretAccessKey)
     print("\nWe Patched You In!")
     return ec2client
 
@@ -113,14 +117,105 @@ def terminateInstance():
             print("Terminating.....")
             inst.terminate()
             inst.wait_until_terminated()
+            break
         else:
             y = y + 1
 
 def createNewBucket():
-    print("Hello")
+    bucket_name = input("\nPlease Enter a Bucket Name : ")
+    try:
+        location = {'LocationConstraint': 'eu-west-1'}
+        s3client.create_bucket(Bucket=bucket_name,CreateBucketConfiguration=location)
+    except botocore.exceptions.ClientError:
+       print("That Bucket already Exists")
+    print("\nYour Bucket Has Been Created!")
 
 def startStopper():
     print("Hello")
+
+def uploadImageToBucket():
+    # https://witacsresources.s3-eu-west-1.amazonaws.com/image.jpg
+    urlEntered = input("\nPlease Enter the Url of Your Image: ")
+
+    if os.path.exists("image.jpg"):
+        os.remove("image.jpg")
+        urllib.request.urlretrieve(urlEntered, "image.jpg")
+    else:
+        urllib.request.urlretrieve(urlEntered, "image.jpg")
+
+    file_name = 'image.jpg'
+    x=1
+    allBuckets = s3client.list_buckets()
+    for bucket in allBuckets['Buckets']:
+        print(str(x) + ". " + bucket["Name"])
+        x= x + 1
+    selectedBucket = input("\nPlease Select A Bucket to Upload to: ")
+    y=1
+    for bucket in allBuckets['Buckets']:
+        if y == int(selectedBucket):
+            bucket_name = bucket["Name"]
+            break
+        y = y + 1
+    s3client.upload_file(file_name, bucket_name, file_name,
+    ExtraArgs={'ACL': 'public-read'})
+
+def uploadImageToInstance():
+    print("\nPlease Select A Bucket to get an Image from: \n")
+    x=1
+    allBuckets = s3client.list_buckets()
+    for bucket in allBuckets['Buckets']:
+        print(str(x) + ". " + bucket["Name"])
+        x= x + 1
+    selectedBucket = input("\nYour Selection: ")
+    y=1
+    for bucket in allBuckets['Buckets']:
+        if y == int(selectedBucket):
+            bucket_name = bucket["Name"]
+            break
+        y = y + 1
+    objectURL = "https://%s.s3-eu-west-1.amazonaws.com/image.jpg" % (bucket_name)
+
+    # GETTING IP ADDRESS FOR SSH COMMAND
+
+    x=1
+    print("\nPlease Select an Instance to Upload to:\n")
+    print("--------------------------------------\n")
+    runningInstances = ec2client.instances.filter(Filters=[{'Name': 'instance-state-name', 'Values': ['running']}])
+    for inst in runningInstances:
+        print(str(x) + ". " + inst.id)
+        x = x + 1
+    selectedInstance = input("\nYour Selection: ")
+    y=1
+    for inst in runningInstances:
+        if(y == int(selectedInstance)):
+            public_ip = inst.public_ip_address
+            key_pair_name = inst.key_name + ".pem"
+            break
+        else:
+            y = y + 1
+
+    if os.path.exists(key_pair_name):
+        pass
+    else:
+        print("\nYou do not have the key installed!\nPlease install the key or select a different instance!")
+        mainMenu()
+
+    chmodCommmand = '''icacls.exe %s /reset
+    icacls.exe %s /grant:r "$($env:username):(r)"
+    icacls.exe %s /inheritance:r
+    ''' % (key_pair_name,key_pair_name,key_pair_name)
+    subprocess.Popen(["powershell",chmodCommmand], stdout=subprocess.PIPE)
+
+    cmd1 = '''
+    cd /var/www/html/
+    echo '<html>' > index.html
+    echo '<br>Here is the image:<br> ' >> index.html
+    echo '<img src="%s">' >> index.html
+    echo '</html>' >> index.html
+    ''' % (objectURL)
+    cmdHolder = 'ssh -o StrictHostKeyChecking=no -i ' + key_pair_name + ' ec2-user@' + public_ip + '%s' % (cmd1)
+    subprocess.run(cmdHolder,shell=True)
+    
 
 def mainMenuSwitcher(userSelection):
     intCoverter = int(userSelection)
@@ -132,8 +227,10 @@ def mainMenuSwitcher(userSelection):
         terminateInstance()
     elif intCoverter == 4:
         createNewBucket()
-    # elif intCoverter == 5:
-    #     uploadImage()
+    elif intCoverter == 5:
+        uploadImageToBucket()
+    elif intCoverter == 6:
+        uploadImageToInstance()
     elif intCoverter == 0:
         quit()
     else:
