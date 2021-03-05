@@ -130,9 +130,6 @@ def createNewBucket():
        print("That Bucket already Exists")
     print("\nYour Bucket Has Been Created!")
 
-def startStopper():
-    print("Hello")
-
 def uploadImageToBucket():
     # https://witacsresources.s3-eu-west-1.amazonaws.com/image.jpg
     urlEntered = input("\nPlease Enter the Url of Your Image: ")
@@ -189,6 +186,7 @@ def uploadImageToInstance():
     for inst in runningInstances:
         if(y == int(selectedInstance)):
             public_ip = inst.public_ip_address
+            private_ip = inst.private_ip_address
             key_pair_name = inst.key_name + ".pem"
             break
         else:
@@ -217,7 +215,13 @@ def uploadImageToInstance():
     cmdHolder = "ssh -i " + key_pair_name + " ec2-user@" + public_ip +  " sudo mv index.html /var/www/html"
     subprocess.run(cmdHolder,shell=True)
 
+    subprocess.run(['ssh','-i',key_pair_name,'ec2-user@'+public_ip,' sudo echo "Private IP address: %s"' % (private_ip), ' >> /var/www/html/index.html'])
+
+    subprocess.run(['ssh','-i',key_pair_name,'ec2-user@'+public_ip,' curl http://169.254.169.254/latest/meta-data/local-ipv4 >> /var/www/html/index.html'])
+
     subprocess.run(['ssh','-i',key_pair_name,'ec2-user@'+public_ip,' sudo echo "<img src = %s>"' % (objectURL),' >> /var/www/html/index.html'])
+    # curl http://169.254.169.254/latest/meta-data/local-ipv4 >> index.html])
+    quit()
 
 def uploadMonitoringToInstance():
     x=1
@@ -257,22 +261,21 @@ def uploadMonitoringToInstance():
     run_command = "./monitor.sh"
     subprocess.run(['ssh', '-i', key_pair_name, ip_combined, chmod_commad])
     subprocess.run(['ssh', '-i', key_pair_name, ip_combined, run_command])
+    quit()
 
 def mainMenuSwitcher(userSelection):
     intCoverter = int(userSelection)
     if intCoverter == 1:
         createNewInstance()
     elif intCoverter == 2:
-        startStopper()
-    elif intCoverter == 3:
         terminateInstance()
-    elif intCoverter == 4:
+    elif intCoverter == 3:
         createNewBucket()
-    elif intCoverter == 5:
+    elif intCoverter == 4:
         uploadImageToBucket()
-    elif intCoverter == 6:
+    elif intCoverter == 5:
         uploadImageToInstance()
-    elif intCoverter == 7:
+    elif intCoverter == 6:
         uploadMonitoringToInstance()
     elif intCoverter == 0:
         quit()
@@ -283,21 +286,17 @@ def mainMenu():
     print("\nMain Menu")
     print("---------")
     print("1. Create A New Instance")
-    print("2. Start/Stop an Instance")
-    print("3. Terminate an Instance")
-    print("4. Create Bucket")
-    print("5. Upload an Image to a Bucket")
-    print("6. Upload an Image to an Instance")
-    print("7. Upload Monitoring To an Instance")
+    print("2. Terminate an Instance")
+    print("3. Create Bucket")
+    print("4. Upload an Image to a Bucket")
+    print("5. Upload an Image to an Instance")
+    print("6. Upload Monitoring To an Instance")
     print("\n0. Quit")
     print("---------")
     userSelection = input("Your Selection : ")
     mainMenuSwitcher(userSelection)
     return True
-
-    
-
-    
+     
 awsApiKey()
 while True:
     mainMenu()
