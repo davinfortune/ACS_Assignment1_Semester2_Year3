@@ -104,7 +104,7 @@ def createNewInstance():
 
 def terminateInstance():
     x=1
-    print("Please Select an Instance to Terminate\n")
+    print("\nPlease Select an Instance to Terminate\n")
     print("--------------------------------------\n")
     runningInstances = ec2client.instances.filter(Filters=[{'Name': 'instance-state-name', 'Values': ['running']}])
     for inst in runningInstances:
@@ -114,7 +114,7 @@ def terminateInstance():
     y=1
     for inst in runningInstances:
         if(y == int(instanceToTerminate)):
-            print("Terminating.....")
+            print("\nTerminating.....")
             inst.terminate()
             inst.wait_until_terminated()
             break
@@ -206,16 +206,57 @@ def uploadImageToInstance():
     ''' % (key_pair_name,key_pair_name,key_pair_name)
     subprocess.Popen(["powershell",chmodCommmand], stdout=subprocess.PIPE)
 
-    cmd1 = '''
-    cd /var/www/html/
-    echo '<html>' > index.html
-    echo '<br>Here is the image:<br> ' >> index.html
-    echo '<img src="%s">' >> index.html
-    echo '</html>' >> index.html
-    ''' % (objectURL)
-    cmdHolder = 'ssh -o StrictHostKeyChecking=no -i ' + key_pair_name + ' ec2-user@' + public_ip + '%s' % (cmd1)
+    cmdHolder = "ssh -o StrictHostKeyChecking=no -i " + key_pair_name + " ec2-user@" + public_ip +  " sudo touch index.html"
+    print(cmdHolder)
     subprocess.run(cmdHolder,shell=True)
-    
+
+    cmdHolder = "ssh -i " + key_pair_name + " ec2-user@" + public_ip + " sudo chmod 777 index.html"
+    print(cmdHolder)
+    subprocess.run(cmdHolder,shell=True)
+
+    cmdHolder = "ssh -i " + key_pair_name + " ec2-user@" + public_ip +  " sudo mv index.html /var/www/html"
+    subprocess.run(cmdHolder,shell=True)
+
+    subprocess.run(['ssh','-i',key_pair_name,'ec2-user@'+public_ip,' sudo echo "<img src = %s>"' % (objectURL),' >> /var/www/html/index.html'])
+
+def uploadMonitoringToInstance():
+    x=1
+    print("\nPlease Select an Instance to Upload to:\n")
+    print("--------------------------------------\n")
+    runningInstances = ec2client.instances.filter(Filters=[{'Name': 'instance-state-name', 'Values': ['running']}])
+    for inst in runningInstances:
+        print(str(x) + ". " + inst.id)
+        x = x + 1
+    selectedInstance = input("\nYour Selection: ")
+    y=1
+    for inst in runningInstances:
+        if(y == int(selectedInstance)):
+            public_ip = inst.public_ip_address
+            key_pair_name = inst.key_name + ".pem"
+            break
+        else:
+            y = y + 1
+
+    if os.path.exists(key_pair_name):
+        pass
+    else:
+        print("\nYou do not have the key installed!\nPlease install the key or select a different instance!")
+        mainMenu()
+
+    chmodCommmand = '''icacls.exe %s /reset
+    icacls.exe %s /grant:r "$($env:username):(r)"
+    icacls.exe %s /inheritance:r
+    ''' % (key_pair_name,key_pair_name,key_pair_name)
+    subprocess.Popen(["powershell",chmodCommmand], stdout=subprocess.PIPE)
+
+    ip_combined = "ec2-user@" + public_ip
+
+    ip_scp = ip_combined + ":~"
+    subprocess.run(['scp', '-i', key_pair_name, 'monitor.sh', ip_scp])
+    chmod_commad = "chmod +x monitor.sh"
+    run_command = "./monitor.sh"
+    subprocess.run(['ssh', '-i', key_pair_name, ip_combined, chmod_commad])
+    subprocess.run(['ssh', '-i', key_pair_name, ip_combined, run_command])
 
 def mainMenuSwitcher(userSelection):
     intCoverter = int(userSelection)
@@ -231,6 +272,8 @@ def mainMenuSwitcher(userSelection):
         uploadImageToBucket()
     elif intCoverter == 6:
         uploadImageToInstance()
+    elif intCoverter == 7:
+        uploadMonitoringToInstance()
     elif intCoverter == 0:
         quit()
     else:
@@ -245,15 +288,19 @@ def mainMenu():
     print("4. Create Bucket")
     print("5. Upload an Image to a Bucket")
     print("6. Upload an Image to an Instance")
+    print("7. Upload Monitoring To an Instance")
     print("\n0. Quit")
     print("---------")
     userSelection = input("Your Selection : ")
     mainMenuSwitcher(userSelection)
-    mainMenu()
+    return True
+
+    
 
     
 awsApiKey()
-mainMenu()
+while True:
+    mainMenu()
 
 
     
