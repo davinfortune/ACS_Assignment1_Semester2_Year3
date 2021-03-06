@@ -5,11 +5,9 @@ import urllib.request
 import os
 import subprocess
 
-# sg-0b6477708c0e8462d
-
-# AWS API KEYS
+# AWS API KEYS/ LOGIN SYSTEM
 def awsApiKey():
-
+    # TRYING TO SEE IF THE CREDENTIALS ARE ALREADY STORED, IF THEY ARE THE USER HAS NO REASION TO ENTER THEM AGAIN
     try:
         with open('credentials.txt') as json_file:
             data = json.load(json_file)
@@ -27,6 +25,7 @@ def awsApiKey():
         aws_secret_access_key = userSecretAccessKey
         )
         # THIS CODE WAS RECIEVED FROM THJE FOLLOWING LINK : https://stackoverflow.com/questions/53548737/verify-aws-credentials-with-boto3
+        # I USE AMAZON AUTHENTICATION SERVICE TO SEE IF THE CREDENTIALS EXIST
         try:
             credentialsVerifier.get_caller_identity()
             accessKeyId = userAccessKey
@@ -35,6 +34,7 @@ def awsApiKey():
             print("Your Credentials Are not Correct")
             quit()
         # THIS CODE WAS RECIEVED FROM THE FOLLOWING LINK : https://stackabuse.com/reading-and-writing-json-to-a-file-in-python/
+        # HERE I WRITE OUT THE USERS CREDENTIALS TO A JSON FILE SO I HAVE PERSISTANCE ON THE USER
         data = {}
         data['credentials'] = []
         data['credentials'].append({
@@ -47,6 +47,7 @@ def awsApiKey():
 
 
     # THIS CODE WAS RECIEVED FROM THE BOTO3 DOCUMENTATION : https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html
+    # HERE I LOG IN TO ALL OF THE BOTO3 RESOURCES/CLIENTS I WILL NEED IN ORDER FOR MY SYSTEM TO WORK
     global ec2client 
     global s3client
     ec2client = boto3.resource('ec2',aws_access_key_id = accessKeyId,aws_secret_access_key = secretAccessKey)
@@ -56,7 +57,7 @@ def awsApiKey():
 
 def createNewInstance():
     # THE FOLLOWING CODE WAS TAKEN FROM THE BOTO3 DOCUMENTATION : https://boto.readthedocs.io/en/latest/ref/ec2.html#boto.ec2.connection.EC2Connection.run_instances
-
+    # I GET THE USER TO ENTER IN THE NAME FOR THERE KEY AND USE A WHILE LOOP TO MAKE SURE THE KEY IS ENTERED CORRECTLY
     while True:
         try :
             key_pair_name = input("\nPlease Enter a Name for your Key : ")
@@ -69,6 +70,7 @@ def createNewInstance():
             pass
         print("\n Key Already Exists \n")
 
+    # PREPARING USER DATA
     user_data = '''
     #!/bin/bash
     yum update -y
@@ -76,7 +78,7 @@ def createNewInstance():
     systemctl enable httpd
     systemctl start httpd
     '''
-
+    # CREATING A NEW INSTANCE AND ALSO MAKING SURE THE USERS SECURITY GROUP ID IS CORRECT
     while True:
         try:
             user_security_group_id = input("Please Enter a Security Group Id: ")
@@ -103,6 +105,7 @@ def createNewInstance():
     print("\nYour Instance Has Been Created!\n\nYou can Visit it Here : http://%s\n" % (public_ip))
 
 def terminateInstance():
+    # USING A FOR LOOP TO LIST OUT ALL THE CURRENT RUNNING INSTANCES SO THAT THE USER CAN CHOOSE ONE TO TERMINATE, ALSO USING WAITERS SO THAT THERE IS CONFIRMATION OF THE TERMINATION
     x=1
     print("\nPlease Select an Instance to Terminate\n")
     print("--------------------------------------\n")
@@ -122,6 +125,7 @@ def terminateInstance():
             y = y + 1
 
 def createNewBucket():
+    # LETTING THE USER NAME THE BUCKET TO BE CREATED
     bucket_name = input("\nPlease Enter a Bucket Name : ")
     try:
         location = {'LocationConstraint': 'eu-west-1'}
@@ -132,6 +136,7 @@ def createNewBucket():
 
 def uploadImageToBucket():
     # https://witacsresources.s3-eu-west-1.amazonaws.com/image.jpg
+    # LETTING THE USER CHOOSE WHAT IMAGE TO UPLOAD TO THE BUCKET THEN DOWNLOADING IT AND UPLOADING IT TO THE BUCKET
     urlEntered = input("\nPlease Enter the Url of Your Image: ")
 
     if os.path.exists("image.jpg"):
@@ -197,13 +202,13 @@ def uploadImageToInstance():
     else:
         print("\nYou do not have the key installed!\nPlease install the key or select a different instance!")
         mainMenu()
-
+    # CHANGING PERMISSIONS ON THE KEY FOR USE WITH SSH
     chmodCommmand = '''icacls.exe %s /reset
     icacls.exe %s /grant:r "$($env:username):(r)"
     icacls.exe %s /inheritance:r
     ''' % (key_pair_name,key_pair_name,key_pair_name)
     subprocess.Popen(["powershell",chmodCommmand], stdout=subprocess.PIPE)
-
+    # UPDATING THE WEBPAGE WITH THE FOLLOWING COMMANDS
     cmdHolder = "ssh -o StrictHostKeyChecking=no -i " + key_pair_name + " ec2-user@" + public_ip +  " sudo touch index.html"
     print(cmdHolder)
     subprocess.run(cmdHolder,shell=True)
@@ -215,15 +220,17 @@ def uploadImageToInstance():
     cmdHolder = "ssh -i " + key_pair_name + " ec2-user@" + public_ip +  " sudo mv index.html /var/www/html"
     subprocess.run(cmdHolder,shell=True)
 
-    subprocess.run(['ssh','-i',key_pair_name,'ec2-user@'+public_ip,' sudo echo "Private IP address: %s"' % (private_ip), ' >> /var/www/html/index.html'])
+    subprocess.run(['ssh','-i',key_pair_name,'ec2-user@'+public_ip,' sudo echo "<br>Private IP address: %s"' % (private_ip), ' >> /var/www/html/index.html'])
 
-    subprocess.run(['ssh','-i',key_pair_name,'ec2-user@'+public_ip,' curl http://169.254.169.254/latest/meta-data/local-ipv4 >> /var/www/html/index.html'])
+    subprocess.run(['ssh','-i',key_pair_name,'ec2-user@'+public_ip,' sudo echo "<br>Availablity Zone :" >> /var/www/html/index.html'])
+
+    subprocess.run(['ssh','-i',key_pair_name,'ec2-user@'+public_ip,' curl http://169.254.169.254/latest/meta-data/placement/availability-zone >> /var/www/html/index.html'])
 
     subprocess.run(['ssh','-i',key_pair_name,'ec2-user@'+public_ip,' sudo echo "<img src = %s>"' % (objectURL),' >> /var/www/html/index.html'])
-    # curl http://169.254.169.254/latest/meta-data/local-ipv4 >> index.html])
     quit()
 
 def uploadMonitoringToInstance():
+    # USER INPUT SELECTING INSTANCE
     x=1
     print("\nPlease Select an Instance to Upload to:\n")
     print("--------------------------------------\n")
@@ -246,13 +253,13 @@ def uploadMonitoringToInstance():
     else:
         print("\nYou do not have the key installed!\nPlease install the key or select a different instance!")
         mainMenu()
-
+    # CHANGING PERMISSIONS ON KEY TO BE USED WITH SSH 
     chmodCommmand = '''icacls.exe %s /reset
     icacls.exe %s /grant:r "$($env:username):(r)"
     icacls.exe %s /inheritance:r
     ''' % (key_pair_name,key_pair_name,key_pair_name)
     subprocess.Popen(["powershell",chmodCommmand], stdout=subprocess.PIPE)
-
+    # USING SSH TO UPLOAD AND RUN MONITOR.sh ON THE INSTANCE 
     ip_combined = "ec2-user@" + public_ip
 
     ip_scp = ip_combined + ":~"
